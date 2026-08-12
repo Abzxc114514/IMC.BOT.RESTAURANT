@@ -26,7 +26,7 @@ import java.util.List;
  */
 public class OrderManager {
 
-    private static final double SCAN_RADIUS = 16.0;
+    private static final double SCAN_RADIUS = 3.0;
 
     private final List<String> currentOrder = new ArrayList<>();
 

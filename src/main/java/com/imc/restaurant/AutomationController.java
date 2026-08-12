@@ -3,7 +3,6 @@ package com.imc.restaurant;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.text.Text;
@@ -28,7 +27,7 @@ import java.util.List;
  *   -> OPEN_BARREL            (右键打开木桶)
  *   -> TAKE_ITEMS             (从木桶GUI取物品到热栏1~5)
  *   -> CLOSE_BARREL           (关闭木桶GUI)
- *   -> AIM_MONSTER            (对准最近的怪物)
+ *   -> AIM_MONSTER            (对准最近的生物，除玩家与盔甲架)
  *   -> FEED                   (切换热栏物品并右键喂食)
  *   -> DONE                   (本道菜完成，继续下一道菜，或回到读取订单)
  *
@@ -257,9 +256,10 @@ public class AutomationController {
                 eye.x + radius, eye.y + radius, eye.z + radius);
         Entity nearest = null;
         double nearestDist = Double.MAX_VALUE;
+        // 扫描所有生物（除玩家自己、盔甲架外）
         for (Entity e : mc.world.getOtherEntities(player, box)) {
-            if (!(e instanceof MobEntity)) continue;
             if (e instanceof net.minecraft.entity.decoration.ArmorStandEntity) continue;
+            if (e instanceof net.minecraft.entity.player.PlayerEntity) continue;
             double d = e.squaredDistanceTo(eye);
             if (d < nearestDist) {
                 nearestDist = d;
@@ -267,14 +267,14 @@ public class AutomationController {
             }
         }
         if (nearest == null) {
-            player.sendMessage(Text.literal("§c[IMC] 附近没有怪物，跳过喂食。"), false);
+            player.sendMessage(Text.literal("§c[IMC] 附近没有生物，跳过喂食。"), false);
             onDishFinished(player);
             return;
         }
         targetMonster = nearest;
         lookAt(player, nearest.getEyePos());
         player.sendMessage(Text.literal(
-                "§d[IMC] 已瞄准怪物：§f" + nearest.getName().getString()), false);
+                "§d[IMC] 已瞄准生物：§f" + nearest.getName().getString()), false);
         feedSlot = 0;
         waitTicks = 8;
         state = State.FEED;
