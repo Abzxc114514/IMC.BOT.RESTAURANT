@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "imcrestaurant",
+  "version": "${version}",
+  "name": "IMCRestaurant",
+  "description": "IMC饺子店bot - 自动化餐厅经营模组。绑定木桶到菜品，读取盔甲架订单，自动取餐喂食怪物。",
+  "authors": [
+    "IMC"
+  ],
+  "contact": {
+    "homepage": "https://example.com/",
+    "sources": "https://github.com/example/IMCRestaurant"
+  },
+  "license": "MIT",
+  "icon": "assets/imcrestaurant/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.imc.restaurant.IMCRestaurantMod"
+    ]
+  },
+  "mixins": [
+    "imcrestaurant.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
