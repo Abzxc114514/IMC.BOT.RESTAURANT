@@ -206,8 +206,11 @@ public class AutomationController {
     }
 
     /**
-     * 把木桶容器里的物品转移到玩家热栏 1~5 槽（slot index 0~4）。
+     * 从木桶容器里取出「单个」物品到玩家背包（非整组）。
      * 操作的是当前打开的 ScreenHandler。
+     *
+     * 实现：左键点击容器槽拿起整组到光标 → 右键点击玩家空背包槽放一个 →
+     *      左键点击容器槽把光标剩余放回。
      */
     private void takeItemsFromBarrel(ClientPlayerEntity player) {
         MinecraftClient mc = MinecraftClient.getInstance();
@@ -220,24 +223,52 @@ public class AutomationController {
         var handler = mc.player.currentScreenHandler;
         int totalSlots = handler.slots.size();
         // 玩家背包在 screen handler 末尾：通常 27 主背包 + 9 热栏
-        // 热栏 slot index = totalSlots - 9 .. totalSlots - 1
         int hotbarStart = totalSlots - 9;
 
-        // 木桶物品槽范围：从 0 到 hotbarStart - 27 - 1 之间是容器槽
-        int containerSlots = hotbarStart - 27; // 容器槽位数（如木桶27）
-        boolean moved = false;
-        for (int i = 0; i < containerSlots && !moved; i++) {
-            ItemStack stack = handler.getSlot(i).getStack();
-            if (stack.isEmpty()) continue;
-            // shift+左键点击容器槽 -> 自动合并到玩家背包（每次只拿一个）
-            if (mc.interactionManager != null) {
-                mc.interactionManager.clickSlot(
-                        handler.syncId, i, 0, SlotActionType.QUICK_MOVE, mc.player);
+        // 木桶物品槽范围：0 .. hotbarStart - 27 - 1
+        int containerSlots = hotbarStart - 27;
+
+        // 找容器里第一个有物品的槽
+        int sourceSlot = -1;
+        for (int i = 0; i < containerSlots; i++) {
+            if (!handler.getSlot(i).getStack().isEmpty()) {
+                sourceSlot = i;
+                break;
             }
-            moved = true;
+        }
+        if (sourceSlot < 0) {
+            player.sendMessage(Text.literal("§c[IMC] 木桶为空，跳过。"), false);
+            onDishFinished(player);
+            return;
+        }
+
+        // 找玩家背包里第一个空槽（优先热栏 1~5，即 totalSlots-9 .. totalSlots-5）
+        int destSlot = -1;
+        for (int i = hotbarStart; i < totalSlots; i++) {
+            if (handler.getSlot(i).getStack().isEmpty()) {
+                destSlot = i;
+                break;
+            }
+        }
+        if (destSlot < 0) {
+            player.sendMessage(Text.literal("§c[IMC] 背包已满，跳过取物。"), false);
+            onDishFinished(player);
+            return;
+        }
+
+        if (mc.interactionManager != null) {
+            // 1) 左键容器槽：拿起整组到光标
+            mc.interactionManager.clickSlot(
+                    handler.syncId, sourceSlot, 0, SlotActionType.PICKUP, mc.player);
+            // 2) 右键玩家空槽：放下一个物品到背包
+            mc.interactionManager.clickSlot(
+                    handler.syncId, destSlot, 1, SlotActionType.PICKUP, mc.player);
+            // 3) 左键容器槽：把光标剩余物品放回木桶
+            mc.interactionManager.clickSlot(
+                    handler.syncId, sourceSlot, 0, SlotActionType.PICKUP, mc.player);
         }
         player.sendMessage(Text.literal(
-                String.format("§7[IMC] 从 §e%s §7木桶取出 §f1 §7组物品到背包。", currentDish)), false);
+                String.format("§7[IMC] 从 §e%s §7木桶取出 §f1 §7个物品到背包。", currentDish)), false);
         waitTicks = 2;
         state = State.CLOSE_BARREL;
     }
