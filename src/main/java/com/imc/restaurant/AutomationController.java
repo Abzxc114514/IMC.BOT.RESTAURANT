@@ -141,7 +141,7 @@ public class AutomationController {
                     return;
                 }
                 lookAt(player, barrelCenter(pos));
-                waitTicks = 5; // 等待转头稳定
+                waitTicks = 2; // 等待转头稳定
                 state = State.OPEN_BARREL;
             }
             case OPEN_BARREL -> openTargetedBarrel(player);
@@ -151,7 +151,7 @@ public class AutomationController {
                     mc.currentScreen.close();
                     mc.setScreen(null);
                 }
-                waitTicks = 5;
+                waitTicks = 2;
                 state = State.AIM_MONSTER;
             }
             case AIM_MONSTER -> aimNearestMonster(player);
@@ -201,7 +201,7 @@ public class AutomationController {
             player.swingHand(Hand.MAIN_HAND);
         }
         // 等待服务端打开 GUI
-        waitTicks = 10;
+        waitTicks = 4;
         state = State.TAKE_ITEMS;
     }
 
@@ -224,22 +224,21 @@ public class AutomationController {
         int hotbarStart = totalSlots - 9;
 
         // 木桶物品槽范围：从 0 到 hotbarStart - 27 - 1 之间是容器槽
-        // 简单做法：遍历所有槽，找到属于容器（非玩家背包）的槽，把物品 shift 移到玩家背包
         int containerSlots = hotbarStart - 27; // 容器槽位数（如木桶27）
-        int moved = 0;
-        for (int i = 0; i < containerSlots && moved < 5; i++) {
+        boolean moved = false;
+        for (int i = 0; i < containerSlots && !moved; i++) {
             ItemStack stack = handler.getSlot(i).getStack();
             if (stack.isEmpty()) continue;
-            // shift+左键点击容器槽 -> 自动合并到玩家背包
+            // shift+左键点击容器槽 -> 自动合并到玩家背包（每次只拿一个）
             if (mc.interactionManager != null) {
                 mc.interactionManager.clickSlot(
                         handler.syncId, i, 0, SlotActionType.QUICK_MOVE, mc.player);
             }
-            moved++;
+            moved = true;
         }
         player.sendMessage(Text.literal(
-                String.format("§7[IMC] 从 §e%s §7木桶取出 §f%d §7组物品到背包。", currentDish, moved)), false);
-        waitTicks = 4;
+                String.format("§7[IMC] 从 §e%s §7木桶取出 §f1 §7组物品到背包。", currentDish)), false);
+        waitTicks = 2;
         state = State.CLOSE_BARREL;
     }
 
@@ -276,7 +275,7 @@ public class AutomationController {
         player.sendMessage(Text.literal(
                 "§d[IMC] 已瞄准生物：§f" + nearest.getName().getString()), false);
         feedSlot = 0;
-        waitTicks = 8;
+        waitTicks = 3;
         state = State.FEED;
     }
 
@@ -305,13 +304,13 @@ public class AutomationController {
         mc.player.getInventory().selectedSlot = feedSlot;
         // 2) 先右键点一下（按 trae.md：切换之前记得先再右键点一下）
         useItemOnMonster(player);
-        waitTicks = 6;
+        waitTicks = 2;
         // 3) 切到下一槽，下一 tick 再右键
         feedSlot++;
         if (feedSlot < 5) {
             mc.player.getInventory().selectedSlot = feedSlot;
             useItemOnMonster(player);
-            waitTicks += 6;
+            waitTicks += 2;
             feedSlot++;
         }
     }
