@@ -1,0 +1,64 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build
+        run: ./gradlew build --no-daemon --stacktrace
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: IMCRestaurant-build
+          path: build/libs/*.jar
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: IMCRestaurant ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            ## IMCRestaurant ${{ github.ref_name }}
+
+            Minecraft 1.21.4 Fabric 模组 - IMC 饺子店 bot。
+
+            ### 安装
+            1. 安装 Fabric Loader 0.16.9+ 与 Fabric API
+            2. 将下方 `imcrestaurant-*.jar` 放入 `mods` 文件夹
+            3. 进入游戏，按键说明见 `key.imcrestaurant.*`（默认 B/I/J）
+
+            ### 使用
+            - **B** 开始绑定木桶（共 16 道菜，按菜单顺序报菜名）
+            - **I** 对准木桶绑定到当前菜名
+            - **J** 启动自动流程（读订单→取餐→喂食生物），运行中按 J 终止
+          files: |
+            build/libs/*.jar
