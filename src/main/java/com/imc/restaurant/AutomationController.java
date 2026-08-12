@@ -1,19 +1,20 @@
 package com.imc.restaurant;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -76,33 +77,33 @@ public class AutomationController {
     }
 
     /** 启动整个自动流程：读取订单 -> 依次取餐喂食。 */
-    public void start(ClientPlayerEntity player) {
+    public void start(LocalPlayer player) {
         if (running) {
-            player.sendMessage(Text.literal("§e[IMC] 自动流程已在运行中。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§e[IMC] 自动流程已在运行中。"));
             return;
         }
         if (bindingManager.boundCount() < DishList.DISH_COUNT) {
-            player.sendMessage(Text.literal("§c[IMC] 请先按 B 完成木桶绑定（需要 16 个）。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 请先按 B 完成木桶绑定（需要 16 个）。"));
             return;
         }
         if (!orderManager.readOrder(player)) {
-            player.sendMessage(Text.literal("§c[IMC] 订单读取失败，自动流程未启动。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 订单读取失败，自动流程未启动。"));
             return;
         }
         pendingDishes.clear();
         pendingDishes.addAll(orderManager.getCurrentOrder());
         if (pendingDishes.isEmpty()) {
-            player.sendMessage(Text.literal("§c[IMC] 订单为空。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 订单为空。"));
             return;
         }
         running = true;
-        player.sendMessage(Text.literal("§a[IMC] 自动流程启动，共 §f" + pendingDishes.size()
-                + " §a道菜。按 §fJ §a随时终止。"), false);
+        IMCRestaurantMod.send(player,Component.literal("§a[IMC] 自动流程启动，共 §f" + pendingDishes.size()
+                + " §a道菜。按 §fJ §a随时终止。"));
         nextDish(player);
     }
 
     /** 终止整个流程（玩家按 J）。 */
-    public void stop(ClientPlayerEntity player) {
+    public void stop(LocalPlayer player) {
         if (!running) {
             // 没在运行时按 J，则尝试启动一次（按 trae.md 第7步重新走流程）
             start(player);
@@ -114,29 +115,28 @@ public class AutomationController {
         currentDish = null;
         targetMonster = null;
         // 关闭可能打开的GUI
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.currentScreen != null) {
-            mc.currentScreen.close();
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen != null) {
             mc.setScreen(null);
         }
-        player.sendMessage(Text.literal("§c[IMC] 自动流程已终止。"), false);
+        IMCRestaurantMod.send(player,Component.literal("§c[IMC] 自动流程已终止。"));
     }
 
     /** 由客户端 tick 每tick调用一次。 */
-    public void tick(ClientPlayerEntity player) {
+    public void tick(LocalPlayer player) {
         if (!running) return;
         if (player == null) return;
         if (waitTicks > 0) {
             waitTicks--;
             return;
         }
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         switch (state) {
             case TURN_TO_BARREL -> {
                 BlockPos pos = bindingManager.getBindings().get(currentDish);
                 if (pos == null) {
-                    player.sendMessage(Text.literal("§c[IMC] 菜 §e" + currentDish
-                            + " §c没有对应的木桶，跳过。"), false);
+                    IMCRestaurantMod.send(player,Component.literal("§c[IMC] 菜 §e" + currentDish
+                            + " §c没有对应的木桶，跳过。"));
                     onDishFinished(player);
                     return;
                 }
@@ -147,8 +147,7 @@ public class AutomationController {
             case OPEN_BARREL -> openTargetedBarrel(player);
             case TAKE_ITEMS -> takeItemsFromBarrel(player);
             case CLOSE_BARREL -> {
-                if (mc.currentScreen != null) {
-                    mc.currentScreen.close();
+                if (mc.screen != null) {
                     mc.setScreen(null);
                 }
                 waitTicks = 2;
@@ -162,20 +161,20 @@ public class AutomationController {
         }
     }
 
-    private void nextDish(ClientPlayerEntity player) {
+    private void nextDish(LocalPlayer player) {
         if (pendingDishes.isEmpty()) {
-            player.sendMessage(Text.literal("§b[IMC] 所有菜已交付完毕，按 §fJ §b重新读取订单继续。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§b[IMC] 所有菜已交付完毕，按 §fJ §b重新读取订单继续。"));
             running = false;
             state = State.IDLE;
             return;
         }
         currentDish = pendingDishes.remove(0);
-        player.sendMessage(Text.literal("§d[IMC] 开始处理：§e" + currentDish), false);
+        IMCRestaurantMod.send(player,Component.literal("§d[IMC] 开始处理：§e" + currentDish));
         state = State.TURN_TO_BARREL;
         waitTicks = 0;
     }
 
-    private void onDishFinished(ClientPlayerEntity player) {
+    private void onDishFinished(LocalPlayer player) {
         currentDish = null;
         targetMonster = null;
         feedSlot = 0;
@@ -184,21 +183,21 @@ public class AutomationController {
 
     // ---------------- 动作实现 ----------------
 
-    private void openTargetedBarrel(ClientPlayerEntity player) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.crosshairTarget == null || mc.crosshairTarget.getType() != HitResult.Type.BLOCK) {
-            player.sendMessage(Text.literal("§c[IMC] 没对准方块，跳过该菜。"), false);
+    private void openTargetedBarrel(LocalPlayer player) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.hitResult == null || mc.hitResult.getType() != HitResult.Type.BLOCK) {
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 没对准方块，跳过该菜。"));
             onDishFinished(player);
             return;
         }
-        BlockPos pos = ((BlockHitResult) mc.crosshairTarget).getBlockPos();
-        Direction side = ((BlockHitResult) mc.crosshairTarget).getSide();
-        Vec3d hitVec = mc.crosshairTarget.getPos();
-        if (mc.interactionManager != null) {
-            mc.interactionManager.interactBlock(
-                    player, Hand.MAIN_HAND,
+        BlockPos pos = ((BlockHitResult) mc.hitResult).getBlockPos();
+        Direction side = ((BlockHitResult) mc.hitResult).getDirection();
+        Vec3 hitVec = mc.hitResult.getLocation();
+        if (mc.gameMode != null) {
+            mc.gameMode.useItemOn(
+                    player, InteractionHand.MAIN_HAND,
                     new BlockHitResult(hitVec, side, pos, false));
-            player.swingHand(Hand.MAIN_HAND);
+            player.swing(InteractionHand.MAIN_HAND);
         }
         // 等待服务端打开 GUI
         waitTicks = 4;
@@ -212,15 +211,15 @@ public class AutomationController {
      * 实现：左键点击容器槽拿起整组到光标 → 右键点击玩家空背包槽放一个 →
      *      左键点击容器槽把光标剩余放回。
      */
-    private void takeItemsFromBarrel(ClientPlayerEntity player) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.player.currentScreenHandler == null
-                || mc.currentScreen == null) {
-            player.sendMessage(Text.literal("§c[IMC] 木桶未打开，跳过取物。"), false);
+    private void takeItemsFromBarrel(LocalPlayer player) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.player.containerMenu == null
+                || mc.screen == null) {
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 木桶未打开，跳过取物。"));
             onDishFinished(player);
             return;
         }
-        var handler = mc.player.currentScreenHandler;
+        var handler = mc.player.containerMenu;
         int totalSlots = handler.slots.size();
         // 玩家背包在 screen handler 末尾：通常 27 主背包 + 9 热栏
         int hotbarStart = totalSlots - 9;
@@ -231,13 +230,13 @@ public class AutomationController {
         // 找容器里第一个有物品的槽
         int sourceSlot = -1;
         for (int i = 0; i < containerSlots; i++) {
-            if (!handler.getSlot(i).getStack().isEmpty()) {
+            if (!handler.getSlot(i).getItem().isEmpty()) {
                 sourceSlot = i;
                 break;
             }
         }
         if (sourceSlot < 0) {
-            player.sendMessage(Text.literal("§c[IMC] 木桶为空，跳过。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 木桶为空，跳过。"));
             onDishFinished(player);
             return;
         }
@@ -245,66 +244,66 @@ public class AutomationController {
         // 找玩家背包里第一个空槽（优先热栏 1~5，即 totalSlots-9 .. totalSlots-5）
         int destSlot = -1;
         for (int i = hotbarStart; i < totalSlots; i++) {
-            if (handler.getSlot(i).getStack().isEmpty()) {
+            if (handler.getSlot(i).getItem().isEmpty()) {
                 destSlot = i;
                 break;
             }
         }
         if (destSlot < 0) {
-            player.sendMessage(Text.literal("§c[IMC] 背包已满，跳过取物。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 背包已满，跳过取物。"));
             onDishFinished(player);
             return;
         }
 
-        if (mc.interactionManager != null) {
+        if (mc.gameMode != null) {
             // 1) 左键容器槽：拿起整组到光标
-            mc.interactionManager.clickSlot(
-                    handler.syncId, sourceSlot, 0, SlotActionType.PICKUP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(
+                    handler.containerId, sourceSlot, 0, ClickType.PICKUP, mc.player);
             // 2) 右键玩家空槽：放下一个物品到背包
-            mc.interactionManager.clickSlot(
-                    handler.syncId, destSlot, 1, SlotActionType.PICKUP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(
+                    handler.containerId, destSlot, 1, ClickType.PICKUP, mc.player);
             // 3) 左键容器槽：把光标剩余物品放回木桶
-            mc.interactionManager.clickSlot(
-                    handler.syncId, sourceSlot, 0, SlotActionType.PICKUP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(
+                    handler.containerId, sourceSlot, 0, ClickType.PICKUP, mc.player);
         }
-        player.sendMessage(Text.literal(
-                String.format("§7[IMC] 从 §e%s §7木桶取出 §f1 §7个物品到背包。", currentDish)), false);
+        IMCRestaurantMod.send(player,Component.literal(
+                String.format("§7[IMC] 从 §e%s §7木桶取出 §f1 §7个物品到背包。", currentDish)));
         waitTicks = 2;
         state = State.CLOSE_BARREL;
     }
 
-    private void aimNearestMonster(ClientPlayerEntity player) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.world == null) {
+    private void aimNearestMonster(LocalPlayer player) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
             onDishFinished(player);
             return;
         }
-        Vec3d eye = player.getEyePos();
+        Vec3 eye = player.getEyePosition();
         double radius = 32.0;
-        Box box = new Box(
+        AABB box = new AABB(
                 eye.x - radius, eye.y - radius, eye.z - radius,
                 eye.x + radius, eye.y + radius, eye.z + radius);
         Entity nearest = null;
         double nearestDist = Double.MAX_VALUE;
         // 扫描所有生物（除玩家自己、盔甲架外）
-        for (Entity e : mc.world.getOtherEntities(player, box)) {
-            if (e instanceof net.minecraft.entity.decoration.ArmorStandEntity) continue;
-            if (e instanceof net.minecraft.entity.player.PlayerEntity) continue;
-            double d = e.squaredDistanceTo(eye);
+        for (Entity e : mc.level.getEntities(player, box)) {
+            if (e instanceof net.minecraft.world.entity.decoration.ArmorStand) continue;
+            if (e instanceof Player) continue;
+            double d = e.distanceToSqr(eye);
             if (d < nearestDist) {
                 nearestDist = d;
                 nearest = e;
             }
         }
         if (nearest == null) {
-            player.sendMessage(Text.literal("§c[IMC] 附近没有生物，跳过喂食。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 附近没有生物，跳过喂食。"));
             onDishFinished(player);
             return;
         }
         targetMonster = nearest;
-        lookAt(player, nearest.getEyePos());
-        player.sendMessage(Text.literal(
-                "§d[IMC] 已瞄准生物：§f" + nearest.getName().getString()), false);
+        lookAt(player, nearest.getEyePosition());
+        IMCRestaurantMod.send(player,Component.literal(
+                "§d[IMC] 已瞄准生物：§f" + nearest.getName().getString()));
         feedSlot = 0;
         waitTicks = 3;
         state = State.FEED;
@@ -318,75 +317,72 @@ public class AutomationController {
      * 实现：先把当前手持物品右键一次（预喂），再切到下一个热栏槽，
      *      再右键一次。直到热栏1~5都使用完，则本道菜完成。
      */
-    private void feedStep(ClientPlayerEntity player) {
+    private void feedStep(LocalPlayer player) {
         if (targetMonster == null || !targetMonster.isAlive()) {
-            player.sendMessage(Text.literal("§c[IMC] 目标怪物已消失。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 目标怪物已消失。"));
             onDishFinished(player);
             return;
         }
         if (feedSlot >= 5) {
             // 1~5 槽全部使用完毕，本道菜完成
-            player.sendMessage(Text.literal("§a[IMC] §e" + currentDish + " §a喂食完毕。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§a[IMC] §e" + currentDish + " §a喂食完毕。"));
             onDishFinished(player);
             return;
         }
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         // 1) 切换到目标热栏槽（0~4 对应快捷栏1~5）
-        mc.player.getInventory().selectedSlot = feedSlot;
+        mc.player.getInventory().setSelectedSlot(feedSlot);
         // 2) 先右键点一下（按 trae.md：切换之前记得先再右键点一下）
         useItemOnMonster(player);
         waitTicks = 2;
         // 3) 切到下一槽，下一 tick 再右键
         feedSlot++;
         if (feedSlot < 5) {
-            mc.player.getInventory().selectedSlot = feedSlot;
+            mc.player.getInventory().setSelectedSlot(feedSlot);
             useItemOnMonster(player);
             waitTicks += 2;
             feedSlot++;
         }
     }
 
-    private void useItemOnMonster(ClientPlayerEntity player) {
-        MinecraftClient mc = MinecraftClient.getInstance();
+    private void useItemOnMonster(LocalPlayer player) {
+        Minecraft mc = Minecraft.getInstance();
         // 优先对准目标实体右键；否则对准准星方向使用物品
         if (targetMonster != null) {
-            lookAt(player, targetMonster.getEyePos());
-            if (mc.interactionManager != null) {
-                mc.interactionManager.interactEntityAtLocation(
-                        player, targetMonster,
-                        new EntityHitResult(targetMonster,
-                                targetMonster.getEyePos()),
-                        Hand.MAIN_HAND);
+            lookAt(player, targetMonster.getEyePosition());
+            if (mc.gameMode != null) {
+                mc.gameMode.interact(
+                        player, targetMonster, InteractionHand.MAIN_HAND);
             }
         }
         // 同时触发 useItem，保证右键效果（喂食/投掷）
-        if (mc.interactionManager != null) {
-            mc.interactionManager.interactItem(player, Hand.MAIN_HAND);
+        if (mc.gameMode != null) {
+            mc.gameMode.useItem(player, InteractionHand.MAIN_HAND);
         }
-        player.swingHand(Hand.MAIN_HAND);
+        player.swing(InteractionHand.MAIN_HAND);
     }
 
     // ---------------- 工具 ----------------
 
-    private Vec3d barrelCenter(BlockPos pos) {
-        return new Vec3d(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+    private Vec3 barrelCenter(BlockPos pos) {
+        return new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
     }
 
     /** 让玩家看向指定坐标点。 */
-    private void lookAt(ClientPlayerEntity player, Vec3d target) {
-        Vec3d eye = player.getEyePos();
+    private void lookAt(LocalPlayer player, Vec3 target) {
+        Vec3 eye = player.getEyePosition();
         double dx = target.x - eye.x;
         double dy = target.y - eye.y;
         double dz = target.z - eye.z;
         double distXZ = Math.sqrt(dx * dx + dz * dz);
         float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
         float pitch = (float) -Math.toDegrees(Math.atan2(dy, distXZ));
-        player.setYaw(yaw);
-        player.setPitch(pitch);
+        player.setYRot(yaw);
+        player.setXRot(pitch);
         // 立即同步，避免插值平滑
-        player.prevYaw = yaw;
-        player.prevPitch = pitch;
-        player.headYaw = yaw;
-        player.bodyYaw = yaw;
+        player.yRotO = yaw;
+        player.xRotO = pitch;
+        player.yHeadRot = yaw;
+        player.yBodyRot = yaw;
     }
 }

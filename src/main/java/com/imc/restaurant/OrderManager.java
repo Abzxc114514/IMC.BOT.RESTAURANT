@@ -1,12 +1,12 @@
 package com.imc.restaurant;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,32 +42,32 @@ public class OrderManager {
      * 扫描附近盔甲架，解析出订单菜名。
      * @return 是否成功读取到至少一个菜名。
      */
-    public boolean readOrder(ClientPlayerEntity player) {
+    public boolean readOrder(LocalPlayer player) {
         currentOrder.clear();
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.world == null) {
-            player.sendMessage(Text.literal("§c[IMC] 世界未加载，无法读取订单。"), false);
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 世界未加载，无法读取订单。"));
             return false;
         }
 
-        Vec3d eye = player.getEyePos();
-        Box box = new Box(
+        Vec3 eye = player.getEyePosition();
+        AABB box = new AABB(
                 eye.x - SCAN_RADIUS, eye.y - SCAN_RADIUS, eye.z - SCAN_RADIUS,
                 eye.x + SCAN_RADIUS, eye.y + SCAN_RADIUS, eye.z + SCAN_RADIUS);
 
-        List<ArmorStandEntity> stands = new ArrayList<>();
-        for (Entity e : mc.world.getOtherEntities(player, box)) {
-            if (e instanceof ArmorStandEntity as) {
+        List<ArmorStand> stands = new ArrayList<>();
+        for (Entity e : mc.level.getEntities(player, box)) {
+            if (e instanceof ArmorStand as) {
                 stands.add(as);
             }
         }
 
         if (stands.isEmpty()) {
-            player.sendMessage(Text.literal("§c[IMC] 附近没有盔甲架。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 附近没有盔甲架。"));
             return false;
         }
 
-        for (ArmorStandEntity as : stands) {
+        for (ArmorStand as : stands) {
             String name = getCustomName(as);
             if (name == null || name.isBlank()) {
                 continue; // 无名盔甲架视为订单信息/装饰，排除
@@ -82,13 +82,13 @@ public class OrderManager {
         }
 
         if (currentOrder.isEmpty()) {
-            player.sendMessage(Text.literal("§e[IMC] 未识别到任何菜单菜名（已排除订单信息盔甲架）。"), false);
+            IMCRestaurantMod.send(player,Component.literal("§e[IMC] 未识别到任何菜单菜名（已排除订单信息盔甲架）。"));
             return false;
         }
 
-        player.sendMessage(Text.literal(
+        IMCRestaurantMod.send(player,Component.literal(
                 "§a[IMC] 读取到订单 §f(" + currentOrder.size() + " 道)§a：§e"
-                        + String.join("、", currentOrder)), false);
+                        + String.join("、", currentOrder)));
         return true;
     }
 
@@ -96,8 +96,8 @@ public class OrderManager {
         currentOrder.clear();
     }
 
-    private static String getCustomName(ArmorStandEntity as) {
-        Text custom = as.getCustomName();
+    private static String getCustomName(ArmorStand as) {
+        Component custom = as.getCustomName();
         if (custom == null) return null;
         return custom.getString();
     }
