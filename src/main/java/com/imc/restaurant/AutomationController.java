@@ -236,6 +236,10 @@ public class AutomationController {
             }
         }
         if (sourceSlot < 0) {
+            // 发送到公共聊天栏，让前台 bot "说"出来（服务器所有人可见）
+            if (mc.player.connection != null) {
+                mc.player.connection.sendChat(currentDish + " 菜品没了！");
+            }
             IMCRestaurantMod.send(player,Component.literal("§c[IMC] §e" + currentDish + " §c菜品没了！"));
             onDishFinished(player);
             return;
