@@ -237,7 +237,11 @@ public class AutomationController {
             }
         }
         if (sourceSlot < 0) {
-            player.sendMessage(Text.literal("§c[IMC] 木桶为空，跳过。"), false);
+            // 发送到公共聊天栏，让前台 bot "说"出来（服务器所有人可见）
+            if (mc.player.networkHandler != null) {
+                mc.player.networkHandler.sendChatMessage(currentDish + " 菜品没了！");
+            }
+            player.sendMessage(Text.literal("§c[IMC] §e" + currentDish + " §c菜品没了！"), false);
             onDishFinished(player);
             return;
         }
