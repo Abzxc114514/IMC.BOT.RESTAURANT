@@ -236,7 +236,7 @@ public class AutomationController {
             }
         }
         if (sourceSlot < 0) {
-            IMCRestaurantMod.send(player,Component.literal("§c[IMC] 木桶为空，跳过。"));
+            IMCRestaurantMod.send(player,Component.literal("§c[IMC] §e" + currentDish + " §c菜品没了！"));
             onDishFinished(player);
             return;
         }
