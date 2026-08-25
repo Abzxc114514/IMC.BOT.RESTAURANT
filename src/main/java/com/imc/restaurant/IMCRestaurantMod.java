@@ -4,6 +4,7 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,12 +39,13 @@ public class IMCRestaurantMod implements ClientModInitializer {
         KeyBindings.register(
                 this::onPressB,
                 this::onPressI,
-                this::onPressJ
+                this::onPressJ,
+                this::onPressP
         );
 
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
 
-        LOGGER.info("[IMCRestaurant] 已加载。B=开始绑定 I=绑定木桶 J=读取订单/启动自动流程");
+        LOGGER.info("[IMCRestaurant] 已加载。B=开始绑定 I=绑定木桶 J=读取订单/启动自动流程 P=状态面板");
     }
 
     public static IMCRestaurantMod getInstance() {
@@ -72,6 +74,17 @@ public class IMCRestaurantMod implements ClientModInitializer {
         } else {
             // 启动自动流程：读取订单 -> 取餐 -> 喂食
             automation.start(player);
+        }
+    }
+
+    /** 按 P：打开/关闭状态面板。 */
+    private void onPressP() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        Screen current = mc.currentScreen;
+        if (current instanceof StatusScreen) {
+            mc.setScreen(null);
+        } else if (mc.player != null) {
+            mc.setScreen(new StatusScreen(barrelManager, orderManager, automation));
         }
     }
 

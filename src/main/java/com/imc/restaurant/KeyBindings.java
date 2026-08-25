@@ -11,6 +11,7 @@ import org.lwjgl.glfw.GLFW;
  *  B - 开始绑定木桶 / 开始订单流程
  *  I - 将当前看向的木桶绑定到当前报出的菜名
  *  J - 读取盔甲架订单 / 终止当前流程
+ *  P - 打开/关闭状态面板
  *
  * 按键回调通过 IMCRestaurantMod.KeyHandler 处理。
  */
@@ -20,11 +21,12 @@ public final class KeyBindings {
     public static KeyBinding startBind;   // B
     public static KeyBinding bindBarrel;  // I
     public static KeyBinding readOrder;   // J
+    public static KeyBinding openMenu;    // P
 
     private KeyBindings() {
     }
 
-    public static void register(Runnable onB, Runnable onI, Runnable onJ) {
+    public static void register(Runnable onB, Runnable onI, Runnable onJ, Runnable onP) {
         startBind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.imcrestaurant.start_bind",
                 InputUtil.Type.KEYSYM,
@@ -43,6 +45,12 @@ public final class KeyBindings {
                 GLFW.GLFW_KEY_J,
                 CATEGORY
         ));
+        openMenu = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.imcrestaurant.open_menu",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_P,
+                CATEGORY
+        ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             // wasPressed 消费一次按下事件，避免长按重复触发
@@ -54,6 +62,9 @@ public final class KeyBindings {
             }
             while (readOrder.wasPressed()) {
                 onJ.run();
+            }
+            while (openMenu.wasPressed()) {
+                onP.run();
             }
         });
     }

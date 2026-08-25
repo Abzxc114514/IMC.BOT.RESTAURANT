@@ -2,5 +2,6 @@
   "key.imcrestaurant.category": "IMC餐厅",
   "key.imcrestaurant.start_bind": "开始绑定/开始订单",
   "key.imcrestaurant.bind_barrel": "绑定木桶到当前菜品",
-  "key.imcrestaurant.read_order": "读取订单/终止"
+  "key.imcrestaurant.read_order": "读取订单/终止",
+  "key.imcrestaurant.open_menu": "打开状态面板"
 }

@@ -38,6 +38,12 @@ public class BarrelBindingManager {
         return boundOrder.size();
     }
 
+    /** 供状态面板读取：当前等待绑定的菜名（未处于绑定流程时返回 null）。 */
+    public String getCurrentBindingDish() {
+        if (!binding) return null;
+        return currentDishName();
+    }
+
     public Map<String, BlockPos> getBindings() {
         return dishToBarrel;
     }

@@ -75,6 +75,16 @@ public class AutomationController {
         return running;
     }
 
+    /** 供状态面板读取：当前正在处理的菜名。 */
+    public String getCurrentDish() {
+        return currentDish;
+    }
+
+    /** 供状态面板读取：剩余未处理的订单数。 */
+    public int getPendingCount() {
+        return pendingDishes.size();
+    }
+
     /** 启动整个自动流程：读取订单 -> 依次取餐喂食。 */
     public void start(ClientPlayerEntity player) {
         if (running) {

@@ -2,5 +2,6 @@
   "key.imcrestaurant.category": "IMC Restaurant",
   "key.imcrestaurant.start_bind": "Start Binding / Start Order",
   "key.imcrestaurant.bind_barrel": "Bind Barrel to Current Dish",
-  "key.imcrestaurant.read_order": "Read Order / Terminate"
+  "key.imcrestaurant.read_order": "Read Order / Terminate",
+  "key.imcrestaurant.open_menu": "Open Status Panel"
 }
